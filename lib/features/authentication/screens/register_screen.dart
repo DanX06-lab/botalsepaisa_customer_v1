@@ -6,14 +6,17 @@ import '../../../core/constants/design_system.dart';
 import 'package:botalsepaisa_customer_v1/shared/widgets/primary_button.dart';
 import 'package:botalsepaisa_customer_v1/shared/widgets/custom_text_field.dart';
 
-class RegisterScreen extends StatefulWidget {
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../providers/auth_provider.dart';
+
+class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
 
   @override
-  State<RegisterScreen> createState() => _RegisterScreenState();
+  ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
+class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _mobileController = TextEditingController();
@@ -33,13 +36,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   void _onRegister() {
     if (_formKey.currentState!.validate()) {
-      // Perform register logic
-      context.go('/login');
+      ref.read(authControllerProvider.notifier).register(
+            _nameController.text,
+            _mobileController.text,
+            _emailController.text,
+            _passwordController.text,
+          );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authControllerProvider);
+
+    ref.listen(authControllerProvider, (previous, next) {
+      if (!next.isLoading && next.hasError) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(next.error.toString()),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      } else if (!next.isLoading && next.value != null && previous?.isLoading == true) {
+        // Registration success, navigate to login or home depending on flow
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Registration successful! Please login.'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+        context.go('/login');
+      }
+    });
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -117,6 +146,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 SizedBox(height: AppSpacing.xxl),
                 PrimaryButton(
                   text: 'Register',
+                  isLoading: authState.isLoading,
                   onPressed: _onRegister,
                 ),
                 SizedBox(height: AppSpacing.xl),

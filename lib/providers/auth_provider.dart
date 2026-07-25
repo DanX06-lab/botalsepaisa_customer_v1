@@ -2,29 +2,21 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../repositories/auth_repository.dart';
 import '../models/user_model.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-
-final secureStorageProvider = Provider((ref) => const FlutterSecureStorage());
 
 class AuthController extends AsyncNotifier<UserModel?> {
   @override
   FutureOr<UserModel?> build() async {
-    final storage = ref.watch(secureStorageProvider);
+    final authRepo = ref.watch(authRepositoryProvider);
     try {
-      final token = await storage.read(key: 'auth_token');
-      if (token != null) {
-        return UserModel(
-          id: 'user_123',
-          name: 'John Doe',
-          phone: '9876543210',
-          email: 'john@example.com',
-          referralCode: 'BOTAL50',
-        );
-      }
+      // Attempt to restore session by fetching the user profile
+      // The API client will automatically attach the token and handle refresh if needed.
+      final user = await authRepo.getProfile();
+      return user;
     } catch (e) {
-      // Ignore secure storage errors for mock
+      // If fetching profile fails (e.g. token expired and refresh failed),
+      // we are not logged in.
+      return null;
     }
-    return null;
   }
 
   Future<void> login(String phone, String password) async {
@@ -32,25 +24,28 @@ class AuthController extends AsyncNotifier<UserModel?> {
     state = await AsyncValue.guard(() async {
       final authRepo = ref.read(authRepositoryProvider);
       final user = await authRepo.login(phone, password);
-      final storage = ref.read(secureStorageProvider);
-      try {
-        await storage.write(key: 'auth_token', value: 'mock_token_123');
-      } catch (e) {
-        // Ignore for mock
-      }
       return user;
+    });
+  }
+
+  Future<void> register(String name, String phone, String email, String password) async {
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() async {
+      final authRepo = ref.read(authRepositoryProvider);
+      final user = await authRepo.register(name, phone, email, password);
+      // Depending on backend, register might auto-login or we might need to manually login.
+      // If backend returns a token, authRepo.register should save it. If not, this might need 
+      // to chain a login call. Assuming auto-login or manual login follows if state stays null.
+      // For now, if we get a user back, we can set it as state, but typically we want a fresh login.
+      return user; 
     });
   }
 
   Future<void> logout() async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
-      final storage = ref.read(secureStorageProvider);
-      try {
-        await storage.delete(key: 'auth_token');
-      } catch (e) {
-        // Ignore for mock
-      }
+      final authRepo = ref.read(authRepositoryProvider);
+      await authRepo.logout();
       return null;
     });
   }

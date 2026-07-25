@@ -5,14 +5,17 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_gradients.dart';
 import '../../../core/constants/design_system.dart';
 
-class SplashScreen extends StatefulWidget {
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../providers/auth_provider.dart';
+
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   void initState() {
     super.initState();
@@ -20,10 +23,15 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _navigateToNext() async {
-    // Simulate initial loading or checking auth state
-    await Future.delayed(const Duration(seconds: 3));
-    if (mounted) {
-      context.go('/onboarding');
+    // Give minimum 2 seconds for splash animation
+    await Future.delayed(const Duration(seconds: 2));
+    if (!mounted) return;
+
+    final user = ref.read(authControllerProvider).value;
+    if (user != null) {
+      context.go('/home');
+    } else {
+      context.go('/onboarding'); // Or /login if onboarding already seen
     }
   }
 
